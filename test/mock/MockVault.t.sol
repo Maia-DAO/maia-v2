@@ -2,22 +2,66 @@
 pragma solidity ^0.8.0;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
+
+import {BurntHermes} from "@hermes/BurntHermes.sol";
+
 import {IBaseVault} from "@maia/interfaces/IBaseVault.sol";
 
 contract MockVault is IBaseVault {
-    function applyWeight() external override {}
+    address public partner;
+    BurntHermes public bHermes;
 
-    function applyBoost() external override {}
+    constructor(BurntHermes _bHermes) {
+        bHermes = _bHermes;
+    }
 
-    function applyGovernance() external override {}
+    function setPartner(address _partner) external {
+        partner = _partner;
+    }
 
-    function applyAll() external override {}
+    function applyWeight() public override {
+        uint256 amount = bHermes.gaugeWeight().balanceOf(partner);
+        bHermes.gaugeWeight().transferFrom(partner, address(this), amount);
+    }
 
-    function clearWeight(uint256) external override {}
+    function applyBoost() public override {
+        uint256 amount = bHermes.gaugeBoost().balanceOf(partner);
+        bHermes.gaugeBoost().transferFrom(partner, address(this), amount);
+    }
 
-    function clearBoost(uint256) external override {}
+    function applyGovernance() public override {
+        uint256 amount = bHermes.governance().balanceOf(partner);
+        bHermes.governance().transferFrom(partner, address(this), amount);
+    }
 
-    function clearGovernance(uint256) external override {}
+    function applyAll() external override {
+        applyWeight();
+        applyBoost();
+        applyGovernance();
+    }
 
-    function clearAll() external override {}
+    function clearWeight(uint256 amount) public override {
+        bHermes.gaugeWeight().transfer(partner, amount);
+    }
+
+    function clearBoost(uint256 amount) public override {
+        bHermes.gaugeBoost().transfer(partner, amount);
+    }
+
+    function clearGovernance(uint256 amount) public override {
+        bHermes.governance().transfer(partner, amount);
+    }
+
+    function clearAll() external virtual override {
+        clearWeight(bHermes.gaugeWeight().balanceOf(address(this)));
+        clearBoost(bHermes.gaugeBoost().balanceOf(address(this)));
+        clearGovernance(bHermes.governance().balanceOf(address(this)));
+    }
+}
+
+contract EvilMockVault is MockVault {
+    constructor(BurntHermes _bHermes) MockVault(_bHermes) {}
+
+    // Clear all won't do anything.
+    function clearAll() external virtual override {}
 }

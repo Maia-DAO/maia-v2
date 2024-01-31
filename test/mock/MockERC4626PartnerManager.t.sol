@@ -2,7 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
-import {ERC4626PartnerManager, PartnerManagerFactory, ERC20} from "@maia/tokens/ERC4626PartnerManager.sol";
+import {
+    ERC4626PartnerManager,
+    IERC4626PartnerManager,
+    PartnerManagerFactory,
+    ERC20
+} from "@maia/tokens/ERC4626PartnerManager.sol";
 
 contract MockERC4626PartnerManager is ERC4626PartnerManager {
     constructor(

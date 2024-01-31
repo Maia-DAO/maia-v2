@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.0;
 
+import {console2} from "forge-std/console2.sol";
+
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {DateTimeLib} from "solady/utils/DateTimeLib.sol";
 
 import {VoteMaia, PartnerManagerFactory, ERC20} from "@maia/VoteMaia.sol";
+import {Maia} from "@maia/tokens/Maia.sol";
 import {IBaseVault} from "@maia/interfaces/IBaseVault.sol";
 import {IERC4626PartnerManager} from "@maia/interfaces/IERC4626PartnerManager.sol";
-import {MockVault} from "./mock/MockVault.t.sol";
 
 import {BurntHermes} from "@hermes/BurntHermes.sol";
 import {IUtilityManager} from "@hermes/interfaces/IUtilityManager.sol";
 
-import {DateTimeLib} from "solady/utils/DateTimeLib.sol";
-
-import {console2} from "forge-std/console2.sol";
+import {MockVault} from "./mock/MockVault.t.sol";
 
 contract VoteMaiaTest is DSTestPlus {
     MockVault vault;
 
     MockERC20 public hermes;
 
-    MockERC20 public maia;
+    Maia public maia;
 
     VoteMaia public vMaia;
 
@@ -35,11 +36,13 @@ contract VoteMaiaTest is DSTestPlus {
         hevm.warp(1672531200);
 
         hermes = new MockERC20("test hermes", "RTKN", 18);
-        maia = new MockERC20("test maia", "tMAIA", 18);
+        maia = new Maia(address(this));
 
         bHermes = new BurntHermes(hermes, address(this), address(this));
 
         bHermesRate = 1 ether;
+
+        vault = new MockVault(bHermes);
 
         vMaia = new VoteMaia(
             PartnerManagerFactory(address(this)),
@@ -51,6 +54,8 @@ contract VoteMaiaTest is DSTestPlus {
             address(vault),
             address(this) // set owner to allow call to 'increaseConversionRate'
         );
+
+        vault.setPartner(address(vMaia));
     }
 
     function getFirstDayOfNextMonthUnix() private view returns (uint256) {
@@ -222,5 +227,158 @@ contract VoteMaiaTest is DSTestPlus {
         assertEq(vMaia.bHermes().gaugeWeight().balanceOf(address(this)), 0);
         assertEq(vMaia.bHermes().governance().balanceOf(address(this)), 0);
         assertEq(vMaia.partnerGovernance().balanceOf(address(this)), 0);
+    }
+
+    function testMax() public {
+        testDepositMaia();
+
+        uint256 amount = 100 ether;
+
+        hevm.warp(getFirstDayOfNextMonthUnix());
+
+        assertEq(vMaia.maxWithdraw(address(this)), amount);
+        assertEq(vMaia.maxRedeem(address(this)), amount);
+    }
+
+    function testMaxNotFirstTuesday() public {
+        testDepositMaia();
+
+        hevm.warp(getFirstDayOfNextMonthUnix() + 1 days);
+
+        assertEq(vMaia.maxWithdraw(address(this)), 0);
+        assertEq(vMaia.maxRedeem(address(this)), 0);
+    }
+
+    function testClaimMultiple() public {
+        testDepositMaia();
+
+        uint256 amount = 100 ether;
+
+        hevm.warp(getFirstDayOfNextMonthUnix());
+
+        vMaia.claimMultiple(amount);
+
+        assertEq(vMaia.bHermes().gaugeWeight().balanceOf(address(this)), amount);
+        assertEq(vMaia.bHermes().governance().balanceOf(address(this)), amount);
+        assertEq(vMaia.partnerGovernance().balanceOf(address(this)), amount);
+    }
+
+    function testClaimMultipleAmounts() public {
+        testDepositMaia();
+
+        uint256 amount = 100 ether;
+
+        hevm.warp(getFirstDayOfNextMonthUnix());
+
+        vMaia.claimMultipleAmounts(amount, amount, amount, amount);
+
+        assertEq(vMaia.bHermes().gaugeWeight().balanceOf(address(this)), amount);
+        assertEq(vMaia.bHermes().governance().balanceOf(address(this)), amount);
+        assertEq(vMaia.partnerGovernance().balanceOf(address(this)), amount);
+    }
+
+    function testClaimWeight() public {
+        testDepositMaia();
+
+        uint256 amount = 100 ether;
+
+        hevm.warp(getFirstDayOfNextMonthUnix());
+
+        vMaia.claimWeight(amount);
+
+        assertEq(vMaia.bHermes().gaugeWeight().balanceOf(address(this)), amount);
+    }
+
+    function testClaimGovernance() public {
+        testDepositMaia();
+
+        uint256 amount = 100 ether;
+
+        hevm.warp(getFirstDayOfNextMonthUnix());
+
+        vMaia.claimGovernance(amount);
+
+        assertEq(vMaia.governance().balanceOf(address(this)), amount);
+    }
+
+    function testForfeitMultiple() public {
+        testClaimMultiple();
+
+        uint256 amount = 100 ether;
+
+        vMaia.bHermes().gaugeWeight().approve(address(vMaia), amount);
+        vMaia.bHermes().governance().approve(address(vMaia), amount);
+        vMaia.partnerGovernance().approve(address(vMaia), amount);
+
+        vMaia.forfeitMultiple(amount);
+
+        assertEq(vMaia.bHermes().gaugeWeight().balanceOf(address(this)), 0);
+        assertEq(vMaia.bHermes().governance().balanceOf(address(this)), 0);
+        assertEq(vMaia.partnerGovernance().balanceOf(address(this)), 0);
+    }
+
+    function testForfeitMultipleAmounts() public {
+        testClaimMultiple();
+
+        uint256 amount = 100 ether;
+
+        vMaia.bHermes().gaugeWeight().approve(address(vMaia), amount);
+        vMaia.bHermes().governance().approve(address(vMaia), amount);
+        vMaia.partnerGovernance().approve(address(vMaia), amount);
+
+        vMaia.forfeitMultipleAmounts(amount, amount, amount, amount);
+
+        assertEq(vMaia.bHermes().gaugeWeight().balanceOf(address(this)), 0);
+        assertEq(vMaia.bHermes().governance().balanceOf(address(this)), 0);
+        assertEq(vMaia.partnerGovernance().balanceOf(address(this)), 0);
+    }
+
+    function testForfeitWeight() public {
+        testClaimWeight();
+
+        uint256 amount = 100 ether;
+
+        vMaia.bHermes().gaugeWeight().approve(address(vMaia), amount);
+
+        vMaia.forfeitWeight(amount);
+
+        assertEq(vMaia.bHermes().gaugeWeight().balanceOf(address(this)), 0);
+    }
+
+    function testForfeitGovernance() public {
+        testClaimGovernance();
+
+        uint256 amount = 100 ether;
+
+        vMaia.governance().approve(address(vMaia), amount);
+
+        vMaia.forfeitGovernance(amount);
+
+        assertEq(vMaia.governance().balanceOf(address(this)), 0);
+    }
+
+    function testClaimForfeitClaim() public {
+        testForfeitMultiple();
+
+        uint256 amount = 100 ether;
+
+        vMaia.claimMultiple(amount);
+
+        assertEq(vMaia.bHermes().gaugeWeight().balanceOf(address(this)), amount);
+        assertEq(vMaia.bHermes().governance().balanceOf(address(this)), amount);
+        assertEq(vMaia.partnerGovernance().balanceOf(address(this)), amount);
+    }
+
+    function testMintMaia(address account, uint256 amount) public {
+        maia.mint(account, amount);
+
+        assertEq(maia.balanceOf(account), amount);
+        assertEq(maia.totalSupply(), amount);
+    }
+
+    function testMintMaiaNotOwner(address account, uint256 amount) public {
+        hevm.expectRevert(abi.encodeWithSignature("Unauthorized()"));
+        hevm.prank(address(1));
+        maia.mint(account, amount);
     }
 }
