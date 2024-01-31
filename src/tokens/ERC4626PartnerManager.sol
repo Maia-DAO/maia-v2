@@ -89,7 +89,7 @@ abstract contract ERC4626PartnerManager is PartnerUtilityManager, Ownable, ERC46
     function claimOutstanding() public virtual override {
         /// @dev e.g. bHermesRate value 1100 if need to set 1.1X
         uint256 balance = balanceOf[msg.sender].mulWad(bHermesRate);
-        /// @dev Never overflows since balandeOf >= userClaimed.
+        /// @dev Never underflows since balandeOf >= userClaimed.
         unchecked {
             claimWeight(balance - userClaimedWeight[msg.sender]);
             claimBoost(balance - userClaimedBoost[msg.sender]);
@@ -202,31 +202,34 @@ abstract contract ERC4626PartnerManager is PartnerUtilityManager, Ownable, ERC46
 
     /// @inheritdoc IERC4626PartnerManager
     function migratePartnerVault(address newPartnerVault) external override onlyOwner {
-        if (factory.vaultIds(IBaseVault(newPartnerVault)) == 0) revert UnrecognizedVault();
+        if (newPartnerVault != address(0)) {
+            if (factory.vaultIds(IBaseVault(newPartnerVault)) == 0) revert UnrecognizedVault();
+        }
 
         address oldPartnerVault = partnerVault;
         if (oldPartnerVault != address(0)) IBaseVault(oldPartnerVault).clearAll();
         bHermes.claimOutstanding();
 
         uint256 bHermesBalance = address(bHermes).balanceOf(address(this));
-        if (
-            address(gaugeWeight).balanceOf(address(this)) >= bHermesBalance
-                || address(gaugeBoost).balanceOf(address(this)) >= bHermesBalance
-                || address(governance).balanceOf(address(this)) >= bHermesBalance
-        ) {
-            revert UserFundsExistInOldVault();
+        if (address(gaugeWeight).balanceOf(address(this)) < bHermesBalance) revert UserFundsExistInOldVault();
+        if (address(gaugeBoost).balanceOf(address(this)) < bHermesBalance) revert UserFundsExistInOldVault();
+        if (address(governance).balanceOf(address(this)) < bHermesBalance) revert UserFundsExistInOldVault();
+
+        if (oldPartnerVault != address(0)) {
+            address(gaugeWeight).safeApprove(oldPartnerVault, 0);
+            address(gaugeBoost).safeApprove(oldPartnerVault, 0);
+            address(governance).safeApprove(oldPartnerVault, 0);
         }
 
-        address(gaugeWeight).safeApprove(oldPartnerVault, 0);
-        address(gaugeBoost).safeApprove(oldPartnerVault, 0);
-        address(governance).safeApprove(oldPartnerVault, 0);
+        if (newPartnerVault != address(0)) {
+            address(gaugeWeight).safeApprove(newPartnerVault, type(uint256).max);
+            address(gaugeBoost).safeApprove(newPartnerVault, type(uint256).max);
+            address(governance).safeApprove(newPartnerVault, type(uint256).max);
 
-        address(gaugeWeight).safeApprove(newPartnerVault, type(uint256).max);
-        address(gaugeBoost).safeApprove(newPartnerVault, type(uint256).max);
-        address(governance).safeApprove(newPartnerVault, type(uint256).max);
+            IBaseVault(newPartnerVault).applyAll();
+        }
 
         partnerVault = newPartnerVault;
-        if (newPartnerVault != address(0)) IBaseVault(newPartnerVault).applyAll();
 
         emit MigratePartnerVault(address(this), newPartnerVault);
     }

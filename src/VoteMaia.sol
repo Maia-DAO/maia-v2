@@ -67,8 +67,9 @@ contract VoteMaia is ERC4626PartnerManager {
     ///////////////////////////////////////////////////////////////*/
 
     function claimOutstanding() public override {
+        /// @dev e.g. bHermesRate value 1100 if need to set 1.1X
         uint256 balance = balanceOf[msg.sender].mulWad(bHermesRate);
-        /// @dev Never overflows since balandeOf >= userClaimed.
+        /// @dev Never underflows since balandeOf >= userClaimed.
         unchecked {
             claimWeight(balance - userClaimedWeight[msg.sender]);
             claimGovernance(balance - userClaimedGovernance[msg.sender]);
