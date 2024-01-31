@@ -75,6 +75,9 @@ interface IPartnerManagerFactory {
                             ERRORS
     ///////////////////////////////////////////////////////////////*/
 
+    /// @notice Error emitted when the owner tries to renounce ownership.
+    error RenounceOwnershipNotAllowed();
+
     /// @notice Error thrown when the partner manager is not found.
     error InvalidPartnerManager();
 
