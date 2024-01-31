@@ -41,8 +41,8 @@ contract PartnerManagerFactory is Ownable, IPartnerManagerFactory {
     }
 
     /// @notice Function being overridden to prevent mistakenly renouncing ownership.
-    function renounceOwnership() public payable override onlyOwner {
-        revert("Cannot renounce ownership");
+    function renounceOwnership() public payable override {
+        revert RenounceOwnershipNotAllowed();
     }
 
     /// @inheritdoc IPartnerManagerFactory
@@ -64,7 +64,7 @@ contract PartnerManagerFactory is Ownable, IPartnerManagerFactory {
         if (partners[partnerIds[newPartnerManager]] == newPartnerManager) revert InvalidPartnerManager();
         uint256 id = partners.length;
         partners.push(newPartnerManager);
-        partnerIds[newPartnerManager] == id;
+        partnerIds[newPartnerManager] = id;
 
         emit AddedPartner(newPartnerManager, id);
     }
@@ -74,7 +74,7 @@ contract PartnerManagerFactory is Ownable, IPartnerManagerFactory {
         if (vaults[vaultIds[newVault]] == newVault) revert InvalidVault();
         uint256 id = vaults.length;
         vaults.push(newVault);
-        vaultIds[newVault] == id;
+        vaultIds[newVault] = id;
 
         emit AddedVault(newVault, id);
     }
