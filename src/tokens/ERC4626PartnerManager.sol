@@ -14,9 +14,11 @@ import {bHermesVotes as ERC20MultiVotes} from "@hermes/tokens/bHermesVotes.sol";
 
 import {PartnerManagerFactory} from "../factories/PartnerManagerFactory.sol";
 import {IBaseVault} from "../interfaces/IBaseVault.sol";
+import {IERC4626PartnerManager} from "../interfaces/IERC4626PartnerManager.sol";
+
 import {PartnerUtilityManager} from "../PartnerUtilityManager.sol";
 
-import {IERC4626PartnerManager} from "../interfaces/IERC4626PartnerManager.sol";
+import {vMaiaVotes} from "../tokens/vMaiaVotes.sol";
 
 /// @title Yield bearing, boosting, voting, and gauge enabled Partner Token
 abstract contract ERC4626PartnerManager is PartnerUtilityManager, Ownable, ERC4626, IERC4626PartnerManager {
@@ -61,7 +63,7 @@ abstract contract ERC4626PartnerManager is PartnerUtilityManager, Ownable, ERC46
             address(BurntHermes(_bHermes).gaugeWeight()),
             address(BurntHermes(_bHermes).gaugeBoost()),
             address(BurntHermes(_bHermes).governance()),
-            address(new ERC20MultiVotes(_owner)),
+            address(new vMaiaVotes(_owner)),
             _partnerVault
         )
         ERC4626(
