@@ -89,7 +89,7 @@ abstract contract ERC4626PartnerManager is PartnerUtilityManager, Ownable, ERC46
 
     /// @inheritdoc IERC4626PartnerManager
     function claimOutstanding() public virtual override {
-        /// @dev e.g. bHermesRate value 1100 if need to set 1.1X
+        /// @dev e.g. bHermesRate value 1.1 ether if need to set 1.1X
         uint256 balance = balanceOf[msg.sender].mulWad(bHermesRate);
         /// @dev Never underflows since balandeOf >= userClaimed.
         unchecked {

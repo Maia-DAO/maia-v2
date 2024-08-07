@@ -51,15 +51,20 @@ contract VestingBurntHermes is Ownable, ReentrancyGuard, ERC20 {
                        FORFEIT UTILITY TOKENS LOGIC
     ///////////////////////////////////////////////////////////////*/
 
+    // @notice Error thrown when amount is zero
+    error AmountIsZero();
+
     function forfeit(uint256 amount) public nonReentrant {
+        if (amount == 0) revert AmountIsZero();
+
         _burn(msg.sender, amount);
 
         bHermesGauge.safeTransferFrom(msg.sender, address(this), amount);
         bHermesBoost.safeTransferFrom(msg.sender, address(this), amount);
         bHermesVote.safeTransferFrom(msg.sender, address(this), amount);
 
-        bHermes.forfeitOutstanding();
+        bHermes.forfeitMultiple(amount);
 
-        address(bHermes).safeTransferAll(msg.sender);
+        address(bHermes).safeTransfer(msg.sender, amount);
     }
 }
