@@ -77,7 +77,7 @@ src
 
 To utilize the contracts and deploy to a local testnet, you can install the code in your repo with forge:
 
-```markdown
+```bash
 forge install https://github.com/Maia-DAO/maia-v2
 ```
 

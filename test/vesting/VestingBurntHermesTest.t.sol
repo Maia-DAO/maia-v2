@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {console2} from "forge-std/console2.sol";
+import {stdError} from "forge-std/StdError.sol";
 
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
@@ -50,19 +51,11 @@ contract VestingBurntHermesTest is DSTestPlus {
         assertEq(bHermes.governance().balanceOf(address(this)), amount);
     }
 
-    function testVestingForfeitAll(uint248 _amount) public {
-        testVestingClaim(_amount);
-
-        uint256 amount = uint256(_amount) + 1;
-
-        bHermes.gaugeWeight().approve(address(vestingERC20), amount);
-        bHermes.gaugeBoost().approve(address(vestingERC20), amount);
-        bHermes.governance().approve(address(vestingERC20), amount);
-
-        vestingERC20.forfeit(amount);
+    function testVestingClaimZero() public {
+        vestingERC20.claim();
 
         assertEq(bHermes.balanceOf(address(vestingERC20)), 0);
-        assertEq(bHermes.balanceOf(address(address(this))), amount);
+        assertEq(bHermes.balanceOf(address(address(this))), 0);
 
         assertEq(vestingERC20.balanceOf(address(this)), 0);
         assertEq(vestingERC20.totalSupply(), 0);
@@ -93,5 +86,21 @@ contract VestingBurntHermesTest is DSTestPlus {
         assertEq(bHermes.gaugeWeight().balanceOf(address(this)), amountInVesting);
         assertEq(bHermes.gaugeBoost().balanceOf(address(this)), amountInVesting);
         assertEq(bHermes.governance().balanceOf(address(this)), amountInVesting);
+    }
+
+    function testVestingForfeitAll(uint96 _amount) public {
+        testVestingForfeit(0, _amount);
+    }
+
+    function testVestingForfeitZero() public {
+        hevm.expectRevert(VestingBurntHermes.AmountIsZero.selector);
+        vestingERC20.forfeit(0);
+    }
+
+    function testVestingForfeitNoBalance(uint248 _amount) public {
+        uint256 amount = uint256(_amount) + 1;
+
+        hevm.expectRevert(stdError.arithmeticError);
+        vestingERC20.forfeit(amount);
     }
 }

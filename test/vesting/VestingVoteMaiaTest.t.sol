@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {console2} from "forge-std/console2.sol";
+import {stdError} from "forge-std/StdError.sol";
 
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
@@ -90,20 +91,11 @@ contract VestingVoteMaiaTest is DSTestPlus {
         assertEq(vMaia.partnerGovernance().balanceOf(address(this)), amountToBurn);
     }
 
-    function testVestingForfeitAll(uint128 _amount) public {
-        testVestingClaim(_amount);
-
-        uint256 amount = uint256(_amount) + 1;
-        uint256 amountToApprove = amount.mulWad(bHermesRate);
-
-        vMaia.gaugeWeight().approve(address(vestingERC20), amountToApprove);
-        vMaia.governance().approve(address(vestingERC20), amountToApprove);
-        vMaia.partnerGovernance().approve(address(vestingERC20), amountToApprove);
-
-        vestingERC20.forfeit(amount);
+    function testVestingClaimZero() public {
+        vestingERC20.claim();
 
         assertEq(vMaia.balanceOf(address(vestingERC20)), 0);
-        assertEq(vMaia.balanceOf(address(address(this))), amount);
+        assertEq(vMaia.balanceOf(address(address(this))), 0);
 
         assertEq(vestingERC20.balanceOf(address(this)), 0);
         assertEq(vestingERC20.totalSupply(), 0);
@@ -136,5 +128,21 @@ contract VestingVoteMaiaTest is DSTestPlus {
         assertEq(vMaia.gaugeWeight().balanceOf(address(this)), utilityAmountInVesting);
         assertEq(vMaia.governance().balanceOf(address(this)), utilityAmountInVesting);
         assertEq(vMaia.partnerGovernance().balanceOf(address(this)), utilityAmountInVesting);
+    }
+
+    function testVestingForfeitAll(uint96 _amount) public {
+        testVestingForfeit(0, _amount);
+    }
+
+    function testVestingForfeitZero() public {
+        hevm.expectRevert(VestingVoteMaia.AmountIsZero.selector);
+        vestingERC20.forfeit(0);
+    }
+
+    function testVestingForfeitNoBalance(uint128 _amount) public {
+        uint256 amount = uint256(_amount) + 1;
+
+        hevm.expectRevert(stdError.arithmeticError);
+        vestingERC20.forfeit(amount);
     }
 }
